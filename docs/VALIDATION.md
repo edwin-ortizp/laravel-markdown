@@ -26,13 +26,14 @@ restauración y eventos de la barra. Mermaid requiere acceso al CDN original.
 Esto no equivale a validar permisos/guardado de cada módulo contra bases reales.
 La migración no cambia los servicios de persistencia ni permisos de aplicación.
 
-## Actualizar copias locales
+## Estado de las copias locales
 
-Tras editar el paquete, en cada consumidor ejecutar `composer reinstall edwin/laravel-markdown --no-scripts`.
-Publicar `markdown-assets` con --force; Gesthor también publica `markdown-gesthor`.
-Publicar MiSo solo es necesario si utiliza el componente portable (el perfil actual
-usa vistas del servidor y estilos de la aplicación).
-Repetir las pruebas afectadas. No editar vendor ni activar symlink.
+Los consumidores de la extracción inicial usan `edwin/laravel-markdown` 0.1.0.
+La fuente pública cambia a `edwin-ortizp/laravel-markdown`, sin cambiar código PHP,
+JavaScript ni vistas. Las copias existentes siguen funcionando; no reinstalarlas
+contra la fuente renombrada hasta completar la adopción descrita en [RELEASE.md](RELEASE.md).
+Las pruebas sobre esas copias validan el mismo código de ejecución; la nueva identidad
+Composer se valida aparte con una instalación temporal, sin editar los consumidores.
 
 ## Reversión
 
@@ -55,3 +56,17 @@ solo después de retirar todos sus consumidores.
   y sus dependencias de desarrollo para disponer del runner requerido.
 - Los tests antiguos de tenant se migraron de carpeta, pero no se ejecutaron.
 - Sin migraciones, conversiones de contenido, commits ni publicación remota.
+
+## Preparación pública verificada (2026-10-18)
+
+- Nuevo nombre `edwin-ortizp/laravel-markdown`, licencia MIT y versión inferida de Git.
+- `composer validate --strict`: correcto, sin advertencias.
+- Repetidas las 7 pruebas Browser existentes: 44 aserciones, todas correctas.
+- Comparados por SHA-256 los 12 archivos PHP/vistas/recursos de ejecución contra las
+  tres copias instaladas: sin diferencias. No se reinstaló ni migró ningún consumidor.
+- Instalación limpia del nombre nuevo mediante repositorio path sin symlink y override
+  de versión solo en una aplicación desechable bajo storage/framework/testing.
+  Verificados auto-descubrimiento, editor/visor Blade y publicación de recursos.
+- Esa instalación valida la nueva identidad local; no prueba disponibilidad en
+  Packagist. La instalación desde Packagist y la adopción en consumidores quedan
+  pendientes de publicación/autorización y acceso a la cuenta mantenedora.

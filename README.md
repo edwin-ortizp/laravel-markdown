@@ -1,47 +1,96 @@
-# Laravel Markdown (privado)
+# Laravel Markdown
 
-PHP 8.3+, Laravel 13. Livewire 3/4 opcional. No persiste datos ni registra rutas.
+Editor Markdown y visor para Laravel Blade, con integración opcional con Livewire 3/4.
+El editor portable usa JavaScript nativo: no necesita Alpine, Bootstrap ni una fuente de iconos.
+No persiste contenido, no registra rutas y no decide permisos de aplicación.
 
-## Instalación local
+## Compatibilidad
 
-En cada aplicación agregar un repositorio Composer `path` con `url: ../laravel-markdown`
-y `options: {symlink: false}`, requerir `edwin/laravel-markdown: 0.1.0` y ejecutar
-`composer update edwin/laravel-markdown --minimal-changes`.
-Publicar recursos con `php artisan vendor:publish --tag=markdown-assets --force`.
-Gesthor publica además `--tag=markdown-gesthor --force` para conservar la URL antigua.
-No editar vendor ni los recursos publicados: editar este paquete y reinstalarlo.
+- PHP 8.3 o superior.
+- Laravel 13 (`illuminate/support` y `illuminate/view` ^13.0).
+- Livewire 3 o 4, opcional. El editor también funciona en formularios Blade convencionales.
+- Recursos JavaScript y CSS listos para publicar; no exige Vite ni Laravel Mix.
 
-## Componentes
+La compatibilidad con Laravel 12 o versiones anteriores no está declarada.
 
-```blade
-<x-markdown::editor name="description" :value="old('description')" />
-<x-markdown::editor wire:model="description" />
-<x-markdown::viewer :value="$description" />
+## Instalación
+
+Una vez publicada la versión `v0.1.0` en Packagist:
+
+```bash
+composer require edwin-ortizp/laravel-markdown:^0.1
+php artisan vendor:publish --tag=markdown-assets --force
 ```
 
-El editor portable funciona con JavaScript nativo, también sin Alpine o Livewire.
-`wire:model` y sus modificadores se transmiten sin cambios; los perfiles
-de aplicación conservan sus propios modificadores. No incluir el editor dentro de un
-`wire:ignore` sin un puente de sincronización (Gesthor ya lo tiene).
+Laravel descubre automáticamente el service provider. Carga los scripts y estilos
+que generan los componentes una sola vez por página. Publica de nuevo los recursos
+al actualizar el paquete; no edites las copias de `vendor` ni `public/vendor`.
 
-Los perfiles `markdown::profiles.gesthor`, `miso` y `quizlab` mantienen contratos y
-presentaciones existentes. Sus estilos/traducciones del host son intencionales;
-el componente portable no requiere Bootstrap, Material Design, Tabler ni Alpine.
+## Editor Blade
 
-## Renderizado y compatibilidad
+```blade
+<label for="description">Descripción</label>
+<x-markdown::editor
+    id="description"
+    name="description"
+    :value="old('description', $description ?? '')"
+    :rows="8"
+    placeholder="Escribe en Markdown"
+/>
+```
 
-El visor usa CommonMark con HTML eliminado y enlaces inseguros deshabilitados.
-El perfil MiSo conserva ese criterio. La vista previa portable escapa HTML. El renderizador JS de compatibilidad conserva
-el dialecto histórico de Gesthor; no garantiza paridad con CommonMark. El HTML legado
-de Gesthor permanece bajo el helper de la aplicación, no bajo el visor portable.
-No migrar contenido ni reemplazar renderizadores de lectura automáticamente.
-Mermaid conserva la carga bajo demanda de Gesthor desde jsDelivr (`mermaid@11`);
-requiere conectividad y CSP compatible. No supone almacenamiento ni acceso a datos.
+El campo participa en el envío normal del formulario mediante `name`. Incluye edición,
+vista previa y herramientas para títulos, negrita, cursiva, enlaces, listas, checklist,
+citas y código. La aplicación valida, autoriza y guarda el texto original.
 
-## Distribución y reversión
+## Editor Livewire
 
-La versión inicial es 0.1.0. El repositorio remoto privado y sus etiquetas quedan
-pendientes de publicación autorizada. Para distribuir, registrar ese repositorio VCS
-en cada consumidor y mantener composer.lock. No usar enlaces compartidos en producción.
-Para volver atrás, restaurar solo los adaptadores y cambios Composer de esta extracción,
-reinstalar con el lock anterior y restaurar los recursos previos. No requiere SQL.
+```blade
+<x-markdown::editor id="description" wire:model="description" />
+<x-markdown::editor id="notes" wire:model.live.debounce.250ms="notes" />
+```
+
+Los modificadores de `wire:model` se transmiten sin cambios. La propiedad y la acción
+de guardado pertenecen al componente Livewire de la aplicación. No uses `wire:ignore`
+en el contenedor sin implementar un puente explícito de sincronización.
+
+## Visor
+
+```blade
+<x-markdown::viewer :value="$description" class="article-content" />
+```
+
+El visor utiliza CommonMark, elimina HTML embebido y deshabilita enlaces inseguros.
+Para mostrar las etiquetas HTML como texto, utiliza `html-input="escape"`.
+El visor no ejecuta automáticamente Mermaid; para mejorar los bloques renderizados,
+carga `vendor/laravel-markdown/editor.js` una sola vez en la página.
+
+La vista previa cliente utiliza el dialecto histórico del editor y escapa HTML en
+el componente portable. No garantiza el mismo resultado que CommonMark en todos los
+casos (por ejemplo, tablas). No es un editor WYSIWYG ni un sustituto completo de CKEditor.
+Mermaid se carga bajo demanda desde jsDelivr (`mermaid@11`), con `securityLevel: strict`;
+requiere acceso de red y una CSP compatible. No incluye carga de archivos o imágenes.
+
+## Perfiles de compatibilidad
+
+Se conservan los perfiles `markdown::profiles.gesthor`, `miso` y `quizlab` para facilitar
+la adopción en esas aplicaciones. Son adaptadores opcionales que dependen de sus
+estilos, traducciones y contratos originales; no son el punto de entrada para un
+proyecto Laravel nuevo. Los componentes `x-markdown::editor` y `x-markdown::viewer`
+son las interfaces portables.
+
+Gesthor publica además `php artisan vendor:publish --tag=markdown-gesthor --force`
+para conservar su URL histórica y `window.GesthorMarkdownEditor`. Sus lectores de
+HTML legado siguen siendo responsabilidad de la aplicación; no sustituirlos por el
+visor portable ni convertir registros automáticamente.
+
+## Desarrollo, validación y versiones
+
+Consulta [validación](docs/VALIDATION.md) y [publicación](docs/RELEASE.md).
+Las aplicaciones consumidoras mantienen su propio `composer.lock`. Las versiones
+públicas se obtienen de etiquetas Git; no se fija `version` en el manifiesto.
+Publica cada corrección mediante una nueva etiqueta: no reemplaces etiquetas existentes.
+
+## Licencia
+
+[MIT](LICENSE).

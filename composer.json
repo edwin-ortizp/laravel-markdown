@@ -1,9 +1,8 @@
 {
-    "name": "edwin/laravel-markdown",
-    "description": "Private Markdown components for Blade and Livewire 3/4.",
+    "name": "edwin-ortizp/laravel-markdown",
+    "description": "Framework-independent Markdown editor UI and safe viewer for Laravel Blade, with optional Livewire 3/4 integration.",
     "type": "library",
-    "license": "proprietary",
-    "version": "0.1.0",
+    "license": "MIT",
     "require": {
         "php": "^8.3",
         "illuminate/support": "^13.0",
@@ -24,5 +23,17 @@
                 "Edwin\\LaravelMarkdown\\MarkdownServiceProvider"
             ]
         }
+    },
+    "keywords": [
+        "laravel",
+        "markdown",
+        "blade",
+        "livewire",
+        "editor"
+    ],
+    "homepage": "https://github.com/edwin-ortizp/laravel-markdown",
+    "support": {
+        "issues": "https://github.com/edwin-ortizp/laravel-markdown/issues",
+        "source": "https://github.com/edwin-ortizp/laravel-markdown"
     }
 }
