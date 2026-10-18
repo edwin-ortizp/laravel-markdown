@@ -1,0 +1,26 @@
+[
+  {
+    "name": "unicode",
+    "value": "Descripción áéíóú 👩🏽‍💻 **importante**"
+  },
+  {
+    "name": "identifiers",
+    "value": "survey_templates_table y _cursiva_ con `codigo_inline_x`"
+  },
+  {
+    "name": "checklist",
+    "value": "- [ ] Pendiente\n- [x] Completo"
+  },
+  {
+    "name": "mermaid",
+    "value": "```mermaid\ngraph TD; A[Inicio] --> B[Fin];\n```"
+  },
+  {
+    "name": "legacy",
+    "value": "<p>Texto <strong>HTML</strong></p>"
+  },
+  {
+    "name": "unsafe",
+    "value": "<script>alert(1)</script>[enlace](javascript:alert(1))"
+  }
+]

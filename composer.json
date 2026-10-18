@@ -1,0 +1,28 @@
+{
+    "name": "edwin/laravel-markdown",
+    "description": "Private Markdown components for Blade and Livewire 3/4.",
+    "type": "library",
+    "license": "proprietary",
+    "version": "0.1.0",
+    "require": {
+        "php": "^8.3",
+        "illuminate/support": "^13.0",
+        "illuminate/view": "^13.0",
+        "league/commonmark": "^2.8"
+    },
+    "suggest": {
+        "livewire/livewire": "Optional Livewire 3 or 4 integration"
+    },
+    "autoload": {
+        "psr-4": {
+            "Edwin\\LaravelMarkdown\\": "src/"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Edwin\\LaravelMarkdown\\MarkdownServiceProvider"
+            ]
+        }
+    }
+}
