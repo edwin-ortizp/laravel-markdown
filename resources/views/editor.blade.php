@@ -8,8 +8,8 @@
         ->class(['lm-editor__source']);
 @endphp
 @once
-    <link rel="stylesheet" href="{{ asset('vendor/laravel-markdown/editor.css') }}?v=0.1.0">
-    <script src="{{ asset('vendor/laravel-markdown/editor.js') }}?v=0.1.0"></script>
+    <link rel="stylesheet" href="{{ asset('vendor/laravel-markdown/editor.css') }}?v=0.2.0-dev">
+    <script src="{{ asset('vendor/laravel-markdown/editor.js') }}?v=0.2.0-dev"></script>
 @endonce
 <div data-markdown-editor data-editor-id="{{ $id }}" data-initial-mode="{{ $initialMode }}" class="lm-editor">
     <div class="lm-editor__toolbar" role="toolbar" aria-label="Formato Markdown">
@@ -17,12 +17,19 @@
             <button type="button" class="lm-editor__button" data-markdown-mode="edit">Editar</button>
             <button type="button" class="lm-editor__button" data-markdown-mode="preview">Vista previa</button>
         </div>
+        @if($expandable ?? true)
+            <button type="button" class="lm-editor__button lm-editor__expand" data-markdown-expand hidden aria-label="Ampliar" title="Ampliar" aria-expanded="false">
+                <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path data-markdown-expand-icon d="M8 3H3v5M16 3h5v5M3 16v5h5M21 16v5h-5" /></svg>
+            </button>
+        @endif
         @foreach (['heading' => 'Título', 'bold' => 'Negrita', 'italic' => 'Cursiva', 'link' => 'Enlace', 'list' => 'Lista', 'checklist' => 'Checklist', 'quote' => 'Cita', 'code' => 'Código'] as $tool => $label)
             <button type="button" class="lm-editor__button" data-markdown-snippet="{{ $tool }}">{{ $label }}</button>
         @endforeach
     </div>
+    <div class="lm-editor__body" data-markdown-body tabindex="0" aria-label="Contenido Markdown">
     <div data-markdown-edit @if($initialMode !== 'edit') hidden @endif>
         <textarea data-markdown-source @if($name) name="{{ $name }}" @endif {{ $textareaAttributes }}>{{ $value }}</textarea>
     </div>
     <div data-markdown-preview class="lm-editor__preview" data-empty-text="{{ $emptyText ?? 'Sin contenido' }}" @if($initialMode !== 'preview') hidden @endif></div>
+    </div>
 </div>

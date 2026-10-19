@@ -151,3 +151,27 @@
 
 .lm-editor__source { display: block; width: 100%; box-sizing: border-box; padding: .75rem; color: inherit; background: transparent; font: inherit; }
 .lm-editor [hidden] { display: none !important; }
+
+/* Bounded portable editor; host applications may provide their available height. */
+.lm-editor { display: flex; flex-direction: column; min-width: 0; }
+.lm-editor__toolbar { flex: 0 0 auto; }
+.lm-editor__body { min-height: 0; max-height: var(--lm-content-max-height, 60dvh); overflow: auto; overscroll-behavior: contain; }
+.lm-editor__body:focus-visible { outline: 2px solid currentColor; outline-offset: -2px; }
+.lm-editor__source { max-height: var(--lm-content-max-height, 60dvh); }
+.lm-editor__preview img, .lm-editor__preview svg { max-width: 100%; height: auto; }
+.lm-editor__expand { order: 2; margin-left: auto; cursor: pointer; }
+.lm-editor__expand:focus-visible { outline: 2px solid currentColor; outline-offset: -2px; }
+.lm-editor.lm-editor--expanded {
+    position: fixed; inset: auto; margin: 0; box-sizing: border-box; padding: 0;
+    left: var(--lm-viewport-left, 0px); top: var(--lm-viewport-top, 0px);
+    width: var(--lm-viewport-width, 100vw); height: var(--lm-viewport-height, 100dvh);
+    max-width: none; max-height: none;
+    border: var(--lm-expanded-margin, 16px) solid transparent;
+    background-clip: padding-box; border-radius: 24px;
+    box-shadow: 0 12px 48px #0004;
+}
+.lm-editor--expanded::backdrop { background: rgb(0 0 0 / .45); }
+.lm-editor--expanded .lm-editor__body { flex: 1 1 auto; max-height: none; }
+.lm-editor--expanded [data-markdown-edit] { height: 100%; }
+.lm-editor.lm-editor--expanded .lm-editor__source { height: 100%; min-height: 0; max-height: none; resize: none; }
+@media(max-width: 575.98px) { .lm-editor.lm-editor--expanded { --lm-expanded-margin: 8px; } }

@@ -15,7 +15,7 @@ La compatibilidad con Laravel 12 o versiones anteriores no está declarada.
 
 ## Instalación
 
-Una vez publicada la versión `v0.1.0` en Packagist:
+Instalación de la versión pública actual (`v0.1.0`) desde Packagist:
 
 ```bash
 composer require edwin-ortizp/laravel-markdown:^0.1
@@ -42,6 +42,33 @@ al actualizar el paquete; no edites las copias de `vendor` ni `public/vendor`.
 El campo participa en el envío normal del formulario mediante `name`. Incluye edición,
 vista previa y herramientas para títulos, negrita, cursiva, enlaces, listas, checklist,
 citas y código. La aplicación valida, autoriza y guarda el texto original.
+
+## Scroll y ampliación (próxima versión 0.2.0)
+
+El cuerpo del editor tiene scroll interno y un límite predeterminado de `60dvh`.
+La barra permanece visible. La aplicación puede definir `--lm-content-max-height`
+en un contenedor para ajustarlo al espacio de un formulario o modal.
+
+El botón **Ampliar / Restaurar** permite escribir o leer ocupando el viewport con
+márgenes. No utiliza la pantalla completa del navegador ni guarda automáticamente.
+Conserva el mismo textarea, su formulario, selección y bindings; permite alternar
+edición/vista previa. Escape restaura el campo antes de cerrar el modal anfitrión.
+El foco queda dentro de la superficie y se devuelve al control de origen.
+
+```blade
+<x-markdown::editor id="notes" name="notes" :expandable="false" />
+```
+
+`expandable` es verdadero por defecto. La ampliación requiere Popover API; si no
+está disponible, el botón se oculta y el editor con scroll continúa funcionando.
+`--lm-expanded-margin` controla los márgenes (16px; 8px en móvil). El tamaño ampliado
+se adapta a `visualViewport`, incluido el teclado móvil. El paquete conserva el
+scroll previo de lectura al restaurar, libera foco/scroll/inert al desmontarse o
+al ocultarse el formulario. `LaravelMarkdownEditor.restoreExpanded()` permite
+restaurar explícitamente antes de cerrar un contenedor desde otra integración.
+
+Esta funcionalidad pertenece al editor portable. Los perfiles históricos conservan
+sus contratos; no se cambian automáticamente al actualizar el paquete.
 
 ## Editor Livewire
 

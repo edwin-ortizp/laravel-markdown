@@ -288,6 +288,152 @@
     var portableModes = new WeakMap();
     var portableBound = new WeakSet();
 
+    // Promote the original node: its form, Alpine scope and Livewire bindings stay intact.
+    var expandedEditor = null;
+    var expansion = null;
+
+    function viewportExpanded() {
+        if (!expandedEditor) return;
+        var viewport = window.visualViewport;
+        var values = {
+            left: viewport ? viewport.offsetLeft : 0, top: viewport ? viewport.offsetTop : 0,
+            width: viewport ? viewport.width : window.innerWidth,
+            height: viewport ? viewport.height : window.innerHeight
+        };
+        Object.keys(values).forEach(function (key) {
+            expandedEditor.style.setProperty('--lm-viewport-' + key, values[key] + 'px');
+        });
+    }
+
+    function expansionButton(editor, active) {
+        var button = editor.querySelector('[data-markdown-expand]');
+        if (!button) return;
+        button.hidden = typeof editor.showPopover !== 'function';
+        button.setAttribute('aria-expanded', String(active));
+        button.setAttribute('aria-label', active ? 'Restaurar' : 'Ampliar');
+        button.title = active ? 'Restaurar' : 'Ampliar';
+        button.querySelector('path').setAttribute('d', active
+            ? 'M3 8h5V3M21 8h-5V3M8 21v-5H3M16 21v-5h5'
+            : 'M8 3H3v5M16 3h5v5M3 16v5h5M21 16v5h-5');
+    }
+
+    function restoreExpanded(focus) {
+        if (!expandedEditor) return;
+        var editor = expandedEditor;
+        var state = expansion;
+        expandedEditor = null;
+        expansion = null;
+        state.observer.disconnect();
+        document.removeEventListener('keydown', expandedKey, true);
+        document.removeEventListener('focusin', expandedFocus, true);
+        window.removeEventListener('resize', viewportExpanded);
+        if (window.visualViewport) {
+            window.visualViewport.removeEventListener('resize', viewportExpanded);
+            window.visualViewport.removeEventListener('scroll', viewportExpanded);
+        }
+        if (editor.matches(':popover-open')) editor.hidePopover();
+        editor.removeAttribute('popover');
+        editor.classList.remove('lm-editor--expanded');
+        ['left', 'top', 'width', 'height'].forEach(function (key) { editor.style.removeProperty('--lm-viewport-' + key); });
+        if (state.role === null) editor.removeAttribute('role'); else editor.setAttribute('role', state.role);
+        if (state.label === null) editor.removeAttribute('aria-label'); else editor.setAttribute('aria-label', state.label);
+        editor.removeAttribute('aria-modal');
+        state.inert.forEach(function (item) { item.element.inert = item.inert; });
+        document.documentElement.style.overflow = state.overflow;
+        expansionButton(editor, false);
+        var body = editor.querySelector('[data-markdown-body]');
+        if (body) body.scrollTop = state.bodyScroll;
+        if (focus !== false && editor.isConnected) {
+            (state.invoker && state.invoker.isConnected ? state.invoker : editor.querySelector('[data-markdown-expand]')).focus({preventScroll: true});
+        }
+    }
+
+    function expandedTargets() {
+        return Array.from(expandedEditor.querySelectorAll('button:not([disabled]), textarea, a[href], [tabindex="0"]')).filter(function (el) {
+            return el.getClientRects().length && !el.closest('[hidden]');
+        });
+    }
+
+    function expandedKey(event) {
+        if (!expandedEditor) return;
+        if (event.key === 'Escape') {
+            event.preventDefault(); event.stopImmediatePropagation(); restoreExpanded();
+        } else if (event.key === 'Tab') {
+            var targets = expandedTargets();
+            var first = targets[0], last = targets[targets.length - 1];
+            if (event.shiftKey && document.activeElement === first) {
+                event.preventDefault(); event.stopImmediatePropagation(); last.focus();
+            } else if (!event.shiftKey && document.activeElement === last) {
+                event.preventDefault(); event.stopImmediatePropagation(); first.focus();
+            }
+        }
+    }
+
+    function expandedFocus(event) {
+        if (expandedEditor && !expandedEditor.contains(event.target)) {
+            event.stopImmediatePropagation();
+            var target = expandedTargets()[0];
+            if (target) target.focus({preventScroll: true});
+        }
+    }
+
+    function syncExpanded() {
+        if (!expandedEditor) return;
+        var parent = expandedEditor.parentElement;
+        if (!expandedEditor.isConnected) { restoreExpanded(false); return; }
+        while (parent) {
+            if (parent.hidden || getComputedStyle(parent).display === 'none') { restoreExpanded(false); return; }
+            parent = parent.parentElement;
+        }
+        expandedEditor.classList.add('lm-editor--expanded');
+        expandedEditor.setAttribute('popover', 'manual');
+        expandedEditor.setAttribute('role', 'dialog');
+        expandedEditor.setAttribute('aria-label', 'Editor Markdown ampliado');
+        expandedEditor.setAttribute('aria-modal', 'true');
+        if (!expandedEditor.matches(':popover-open')) expandedEditor.showPopover();
+        expansionButton(expandedEditor, true);
+        viewportExpanded();
+    }
+
+    function expandEditor(editor) {
+        if (expandedEditor === editor) { restoreExpanded(); return; }
+        if (typeof editor.showPopover !== 'function') return;
+        restoreExpanded();
+        expandedEditor = editor;
+        expansion = {
+            invoker: document.activeElement, role: editor.getAttribute('role'), label: editor.getAttribute('aria-label'),
+            bodyScroll: editor.querySelector('[data-markdown-body]').scrollTop,
+            overflow: document.documentElement.style.overflow, inert: []
+        };
+        // Only siblings are inert: no DOM reparenting and no inert ancestor of the field.
+        var branch = editor;
+        while (branch.parentElement && branch !== document.body) {
+            Array.from(branch.parentElement.children).forEach(function (sibling) {
+                if (sibling === branch || !(sibling instanceof HTMLElement)) return;
+                expansion.inert.push({element: sibling, inert: sibling.inert});
+                sibling.inert = true;
+            });
+            branch = branch.parentElement;
+        }
+        document.documentElement.style.overflow = 'hidden';
+        expansion.observer = new MutationObserver(function (changes) {
+            if (changes.some(function (change) {
+                return change.type === 'childList' || !editor.contains(change.target);
+            })) requestAnimationFrame(syncExpanded);
+        });
+        expansion.observer.observe(document.body, {subtree: true, childList: true, attributes: true, attributeFilter: ['style', 'hidden', 'class']});
+        document.addEventListener('keydown', expandedKey, true);
+        document.addEventListener('focusin', expandedFocus, true);
+        window.addEventListener('resize', viewportExpanded);
+        if (window.visualViewport) {
+            window.visualViewport.addEventListener('resize', viewportExpanded);
+            window.visualViewport.addEventListener('scroll', viewportExpanded);
+        }
+        syncExpanded();
+        var target = portableModes.get(editor) === 'edit' ? source(editor) : editor.querySelector('[data-markdown-body]');
+        target.focus({preventScroll: true});
+    }
+
     function setPortableMode(editor, mode) {
         mode = mode === 'preview' ? 'preview' : 'edit';
         portableModes.set(editor, mode);
@@ -310,9 +456,11 @@
                     if (event.target.closest('[data-markdown-snippet]')) event.preventDefault();
                 });
                 editor.addEventListener('click', function (event) {
-                    var button = event.target.closest('[data-markdown-mode], [data-markdown-snippet]');
+                    var button = event.target.closest('[data-markdown-mode], [data-markdown-snippet], [data-markdown-expand]');
                     if (!button) return;
-                    if (button.dataset.markdownMode) {
+                    if (button.hasAttribute('data-markdown-expand')) {
+                        expandEditor(editor);
+                    } else if (button.dataset.markdownMode) {
                         setPortableMode(editor, button.dataset.markdownMode);
                         editor.dispatchEvent(new CustomEvent('markdown-editor-mode-changed', {
                             bubbles: true, detail: {editorId: editor.dataset.editorId, mode: portableModes.get(editor)}
@@ -324,7 +472,9 @@
                 editor.addEventListener('input', function () { updatePreview(editor); });
             }
             setPortableMode(editor, portableModes.get(editor) || editor.dataset.initialMode);
+            expansionButton(editor, expandedEditor === editor);
         });
+        syncExpanded();
     }
 
     window.addEventListener('markdown-editor-set-mode', function (event) {
@@ -334,6 +484,7 @@
     });
 
     window.LaravelMarkdownEditor = {
+        restoreExpanded: restoreExpanded,
         render: render,
         insertInto: insertInto,
         bindToolbar: bindToolbar,

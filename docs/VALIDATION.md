@@ -1,5 +1,14 @@
 # Validación y operación local
 
+## Desarrollo 0.2.0 (local, sin publicar)
+
+La fuente incorpora scroll limitado y ampliación del componente portable. MiSo
+consume una copia Composer path `0.2.0-dev`, sin enlaces. La prueba integrada usa el
+modal real con estado sintético e incluye un formulario Blade sin adaptador MiSo.
+No se modifican los demás consumidores en este cambio. Los resultados siguientes
+de extracción y preparación pública son históricos; no equivalen a validar 0.2.0
+en Gesthor, QuizLab o CertMind.
+
 ## Pruebas aisladas
 
 Todas las pruebas nuevas registran rutas `/__markdown-test` solo dentro del proceso
@@ -26,7 +35,7 @@ restauración y eventos de la barra. Mermaid requiere acceso al CDN original.
 Esto no equivale a validar permisos/guardado de cada módulo contra bases reales.
 La migración no cambia los servicios de persistencia ni permisos de aplicación.
 
-## Estado de las copias locales
+## Estado inicial de las copias locales (histórico)
 
 Los consumidores de la extracción inicial usan `edwin/laravel-markdown` 0.1.0.
 La fuente pública cambia a `edwin-ortizp/laravel-markdown`, sin cambiar código PHP,
@@ -70,3 +79,18 @@ solo después de retirar todos sus consumidores.
 - Esa instalación valida la nueva identidad local; no prueba disponibilidad en
   Packagist. La instalación desde Packagist y la adopción en consumidores quedan
   pendientes de publicación/autorización y acceso a la cuenta mantenedora.
+
+
+## Scroll y ampliación: verificación local de 0.2.0-dev
+
+MiSo: 12 pruebas Browser, 131 aserciones, todas correctas. Cubren el modal real,
+contenido extenso, misma identidad del textarea y selección, foco/Escape,
+Livewire inmediata/diferida y morph, guardado/cancelación/reapertura, cierre del
+ancestro y desmontaje, varios editores, móvil/pantalla baja y redimensionamiento.
+Incluyen un formulario Blade sin adaptador MiSo, expandable:false y fallback sin
+Popover. No se ejecutaron pruebas contra bases de datos de aplicación.
+
+Composer validate, sintaxis JS, build MiSo, Pint dirigido y ui:conformance correctos.
+Solo cambió el paquete en el lock local respecto al inicio del trabajo; instalación
+Composer path con copia verificada, no symlink. Sin commits, etiquetas ni publicación.
+No equivale a validación sobre un dispositivo móvil con teclado real.
