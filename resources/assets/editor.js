@@ -213,6 +213,7 @@
             return;
         }
 
+        labelToolbar(editor.parentElement || document);
         var mode = editor.dataset.initialMode || 'edit';
 
         if (mode === 'preview') {
@@ -310,8 +311,10 @@
         if (!button) return;
         button.hidden = typeof editor.showPopover !== 'function';
         button.setAttribute('aria-expanded', String(active));
-        button.setAttribute('aria-label', active ? 'Restaurar' : 'Ampliar');
-        button.title = active ? 'Restaurar' : 'Ampliar';
+        var label = active ? 'Restaurar (Esc)' : withShortcut('Ampliar', 'expand');
+        button.setAttribute('aria-label', label);
+        button.title = label;
+        if (active) button.removeAttribute('aria-keyshortcuts'); else button.setAttribute('aria-keyshortcuts', shortcutAria(shortcuts.expand));
         button.querySelector('path').setAttribute('d', active
             ? 'M3 8h5V3M21 8h-5V3M8 21v-5H3M16 21v-5h5'
             : 'M8 3H3v5M16 3h5v5M3 16v5h5M21 16v5h-5');
@@ -474,8 +477,215 @@
             setPortableMode(editor, portableModes.get(editor) || editor.dataset.initialMode);
             expansionButton(editor, expandedEditor === editor);
         });
+        labelToolbar(root);
         syncExpanded();
     }
+
+
+    // ---- Atajos de teclado, botón Copiar y tooltips con atajo -------------------------------
+    // Una sola tabla para ejecutar los atajos y rotular los botones. `mod` = Ctrl (⌘ en Mac).
+    var shortcuts = {
+        bold: {key: 'b', mod: true},
+        italic: {key: 'i', mod: true},
+        link: {key: 'k', mod: true},
+        checklist: {key: 'l', mod: true},
+        copy: {key: 'c', alt: true, shift: true},
+        expand: {key: 'f', mod: true, shift: true}
+    };
+
+    function isMac(nav) {
+        nav = nav || window.navigator || {};
+        var platform = (nav.userAgentData && nav.userAgentData.platform) || nav.platform || '';
+        return /mac|iphone|ipad/i.test(platform);
+    }
+
+    function shortcutLabel(shortcut, mac) {
+        if (!shortcut) return '';
+        mac = mac === undefined ? isMac() : mac;
+        return [shortcut.mod && (mac ? '⌘' : 'Ctrl'), shortcut.alt && (mac ? '⌥' : 'Alt'), shortcut.shift && 'Shift', shortcut.key.toUpperCase()]
+            .filter(Boolean).join('+');
+    }
+
+    function shortcutAria(shortcut, mac) {
+        if (!shortcut) return '';
+        mac = mac === undefined ? isMac() : mac;
+        return [shortcut.mod && (mac ? 'Meta' : 'Control'), shortcut.alt && 'Alt', shortcut.shift && 'Shift', shortcut.key.toUpperCase()]
+            .filter(Boolean).join('+');
+    }
+
+    /** «Negrita (Ctrl+B)»; sin atajo devuelve la etiqueta tal cual. */
+    function withShortcut(label, action, mac) {
+        var shortcut = shortcuts[action];
+        return shortcut ? label + ' (' + shortcutLabel(shortcut, mac) + ')' : label;
+    }
+
+    function shortcutAction(event, mac) {
+        mac = mac === undefined ? isMac() : mac;
+        var key = String(event.key || '').toLowerCase();
+        var code = String(event.code || '').toLowerCase();
+        var mod = mac ? event.metaKey : event.ctrlKey;
+        var actions = Object.keys(shortcuts);
+        for (var i = 0; i < actions.length; i++) {
+            var shortcut = shortcuts[actions[i]];
+            // Con Alt el carácter cambia según el teclado (Alt+C → «ç» en Mac): se compara también el código físico.
+            var keyMatches = key === shortcut.key || code === 'key' + shortcut.key;
+            if (keyMatches && !!shortcut.mod === !!mod && !!shortcut.alt === !!event.altKey && !!shortcut.shift === !!event.shiftKey) {
+                return actions[i];
+            }
+        }
+        return null;
+    }
+
+    // Solo escribe si cambia: quien observe `title` (p. ej. un adaptador) no entra en bucle.
+    function setAttr(element, name, value) {
+        if (element.getAttribute(name) !== value) element.setAttribute(name, value);
+    }
+
+    function labelButton(button, label, action) {
+        var text = withShortcut(label, action);
+        setAttr(button, 'aria-label', text);
+        setAttr(button, 'title', text);
+        var aria = shortcutAria(shortcuts[action]);
+        if (aria) setAttr(button, 'aria-keyshortcuts', aria);
+    }
+
+    /** Añade el atajo al tooltip de cada botón de la barra (estándar y perfil Gesthor). */
+    function labelToolbar(root) {
+        (root || document).querySelectorAll('[data-markdown-editor]').forEach(function (editor) {
+            editor.querySelectorAll('[data-markdown-snippet]').forEach(function (button) {
+                if (!button.dataset.markdownLabel) {
+                    button.dataset.markdownLabel = button.textContent.trim() || button.getAttribute('title') || button.getAttribute('aria-label') || '';
+                }
+                if (button.dataset.markdownLabel) labelButton(button, button.dataset.markdownLabel, button.dataset.markdownSnippet);
+            });
+            var copy = editor.querySelector('[data-markdown-copy]');
+            if (copy && !copy.classList.contains('is-copied') && !copy.classList.contains('is-failed')) labelButton(copy, 'Copiar contenido', 'copy');
+        });
+    }
+
+    var copyIcons = {
+        idle: '<rect x="8" y="3" width="8" height="4" rx="1"/><path d="M16 5h2a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h2"/>',
+        done: '<rect x="8" y="3" width="8" height="4" rx="1"/><path d="M16 5h2a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h2"/><path d="m9 14 2 2 4-4"/>',
+        fail: '<rect x="8" y="3" width="8" height="4" rx="1"/><path d="M16 5h2a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h2"/><path d="m10 12 4 4m0-4-4 4"/>'
+    };
+
+    // El icono puede ser el SVG del paquete o un <i> de la app con data-copy-idle/-done/-fail.
+    function setCopyIcon(button, state) {
+        var svg = button.querySelector('svg[data-markdown-copy-icon]');
+        if (svg) { svg.innerHTML = copyIcons[state]; return; }
+        var icon = button.querySelector('i[data-copy-idle]');
+        if (icon) icon.className = icon.getAttribute('data-copy-' + state) || icon.getAttribute('data-copy-idle');
+    }
+
+    /** Copia el Markdown crudo del editor (también desde la vista previa). */
+    function copyMarkdown(element) {
+        var editor = editorFromElement(element);
+        var button = editor && editor.querySelector('[data-markdown-copy]');
+        var textarea = source(editor);
+        var text = textarea ? textarea.value : '';
+        if (!button || !text.trim()) return Promise.resolve(false);
+
+        function fallback() {
+            // Sin Clipboard API (HTTP, navegador antiguo): copia desde un textarea temporal.
+            var helper = document.createElement('textarea');
+            helper.value = text;
+            helper.readOnly = true;
+            helper.style.cssText = 'position:fixed;opacity:0;pointer-events:none';
+            editor.appendChild(helper);
+            helper.select();
+            var ok = false;
+            try { ok = document.execCommand('copy'); } catch (error) { ok = false; }
+            helper.remove();
+            return ok;
+        }
+
+        var attempt = navigator.clipboard && navigator.clipboard.writeText
+            ? navigator.clipboard.writeText(text).then(function () { return true; }, fallback)
+            : Promise.resolve(fallback());
+
+        return attempt.then(function (copied) {
+            var label = copied ? 'Copiado' : 'No se pudo copiar';
+            clearTimeout(button.markdownCopyTimer);
+            button.classList.toggle('is-copied', copied);
+            button.classList.toggle('is-failed', !copied);
+            setAttr(button, 'aria-label', label);
+            setAttr(button, 'title', label);
+            setCopyIcon(button, copied ? 'done' : 'fail');
+            var status = button.querySelector('[data-markdown-copy-status]');
+            if (!status) {
+                status = document.createElement('span');
+                status.setAttribute('role', 'status');
+                status.setAttribute('data-markdown-copy-status', '');
+                status.style.cssText = 'position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap';
+                button.appendChild(status);
+            }
+            status.textContent = label;
+            button.markdownCopyTimer = setTimeout(function () {
+                button.classList.remove('is-copied', 'is-failed');
+                labelButton(button, 'Copiar contenido', 'copy');
+                setCopyIcon(button, 'idle');
+                status.textContent = '';
+            }, 1500);
+            return copied;
+        });
+    }
+
+    /** Ctrl+L: alterna la casilla de la línea actual (añade «- [ ] », la marca o la quita). */
+    function toggleChecklistLine(textarea) {
+        var start = textarea.selectionStart;
+        var value = textarea.value;
+        var lineStart = value.lastIndexOf('\n', start - 1) + 1;
+        var lineEnd = value.indexOf('\n', start);
+        var lineText = value.substring(lineStart, lineEnd === -1 ? value.length : lineEnd);
+        var after = value.substring(lineStart + lineText.length);
+        var unchecked = '- [ ] ';
+        var checked = '- [x] ';
+
+        if (lineText.indexOf(unchecked) === 0) {
+            textarea.value = value.substring(0, lineStart) + checked + lineText.substring(unchecked.length) + after;
+            textarea.selectionStart = textarea.selectionEnd = start;
+        } else if (lineText.indexOf(checked) === 0) {
+            textarea.value = value.substring(0, lineStart) + lineText.substring(checked.length) + after;
+            textarea.selectionStart = textarea.selectionEnd = Math.max(lineStart, start - checked.length);
+        } else {
+            textarea.value = value.substring(0, lineStart) + unchecked + value.substring(lineStart);
+            textarea.selectionStart = textarea.selectionEnd = start + unchecked.length;
+        }
+        textarea.dispatchEvent(new Event('input', {bubbles: true}));
+    }
+
+    document.addEventListener('click', function (event) {
+        var button = event.target.closest && event.target.closest('[data-markdown-copy]');
+        if (button) copyMarkdown(button);
+    });
+
+    // Atajos activos solo con el foco dentro de un editor (también ampliado).
+    document.addEventListener('keydown', function (event) {
+        var editor = event.target.closest && editorFromElement(event.target);
+        if (!editor) return;
+        var action = shortcutAction(event);
+        if (!action) return;
+        var textarea = source(editor);
+
+        if (action === 'copy') {
+            if (!editor.querySelector('[data-markdown-copy]')) return;
+            event.preventDefault();
+            copyMarkdown(editor);
+        } else if (action === 'expand') {
+            var expand = editor.querySelector('[data-markdown-expand]');
+            if (!expand || expand.hidden || !editor.classList.contains('lm-editor')) return;
+            event.preventDefault();
+            expandEditor(editor);
+        } else if (action === 'checklist') {
+            if (event.target !== textarea) return;
+            event.preventDefault();
+            toggleChecklistLine(textarea);
+        } else {
+            if (event.target !== textarea) return;
+            event.preventDefault();
+            insertSnippet(textarea, action);
+        }
+    });
 
     window.addEventListener('markdown-editor-set-mode', function (event) {
         document.querySelectorAll('.lm-editor[data-markdown-editor]').forEach(function (editor) {
@@ -494,6 +704,13 @@
         updatePreview: updatePreview,
         renderMermaid: renderMermaid,
         upgradeServerRenderedMermaid: upgradeServerRenderedMermaid,
+        copy: copyMarkdown,
+        labelToolbar: labelToolbar,
+        shortcuts: shortcuts,
+        shortcutAction: shortcutAction,
+        shortcutLabel: shortcutLabel,
+        shortcutAria: shortcutAria,
+        withShortcut: withShortcut,
     };
 
     window.GesthorMarkdownEditor = window.LaravelMarkdownEditor;

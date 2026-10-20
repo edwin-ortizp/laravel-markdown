@@ -160,6 +160,12 @@
 .lm-editor__source { max-height: var(--lm-content-max-height, 60dvh); }
 .lm-editor__preview img, .lm-editor__preview svg { max-width: 100%; height: auto; }
 .lm-editor__expand { order: 2; margin-left: auto; cursor: pointer; }
+/* Copiar va justo antes de Ampliar, ambos a la derecha. */
+.lm-editor__copy { order: 2; margin-left: auto; cursor: pointer; }
+.lm-editor__copy + .lm-editor__expand { margin-left: 0; }
+.lm-editor__copy.is-copied { color: #15803d; }
+.lm-editor__copy.is-failed { color: #b91c1c; }
+.lm-editor__copy:focus-visible { outline: 2px solid currentColor; outline-offset: -2px; }
 .lm-editor__expand:focus-visible { outline: 2px solid currentColor; outline-offset: -2px; }
 .lm-editor.lm-editor--expanded {
     position: fixed; inset: auto; margin: 0; box-sizing: border-box; padding: 0;

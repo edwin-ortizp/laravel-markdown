@@ -59,6 +59,26 @@ El foco queda dentro de la superficie y se devuelve al control de origen.
 <x-markdown::editor id="notes" name="notes" :expandable="false" />
 ```
 
+### Copiar y atajos de teclado
+
+El botón **Copiar** (a la derecha, antes de Ampliar) copia el Markdown crudo, también
+desde la vista previa, y confirma con «Copiado» durante 1,5 s. Los tooltips de la
+barra muestran el atajo de cada acción (⌘ en lugar de Ctrl en Mac). Los atajos solo
+actúan con el foco dentro del editor:
+
+| Acción | Atajo |
+|---|---|
+| Negrita / Cursiva / Enlace | Ctrl+B / Ctrl+I / Ctrl+K |
+| Checklist (alterna la casilla de la línea) | Ctrl+L |
+| Copiar contenido | Alt+Shift+C |
+| Ampliar / Restaurar | Ctrl+Shift+F / Esc |
+
+Copiar no usa Ctrl+Shift+C porque Chrome la reserva para sus herramientas de
+desarrollo. `window.LaravelMarkdownEditor` expone `shortcuts`, `withShortcut()`,
+`shortcutAction()` y `copy()` para que las apps que personalizan la barra reutilicen
+la misma tabla. En el perfil Gesthor un `<i>` con `data-copy-idle`, `data-copy-done`
+y `data-copy-fail` define los iconos de cada estado.
+
 `expandable` es verdadero por defecto. La ampliación requiere Popover API; si no
 está disponible, el botón se oculta y el editor con scroll continúa funcionando.
 `--lm-expanded-margin` controla los márgenes (16px; 8px en móvil). El tamaño ampliado

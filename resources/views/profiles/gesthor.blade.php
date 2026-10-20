@@ -27,7 +27,7 @@
 @endphp
 
 @once
-    <link rel="stylesheet" href="{{ asset('vendor/laravel-markdown/gesthor.css') }}?v=0.1.0">
+    <link rel="stylesheet" href="{{ asset('vendor/laravel-markdown/gesthor.css') }}?v=0.3.0">
 @endonce
 
 <div
@@ -46,29 +46,32 @@
             <button type="button" class="gh-markdown-editor__button" :class="{ active: mode === 'preview' }" @mousedown.prevent @click="mode = 'preview'; $nextTick(() => GesthorMarkdownEditor.updatePreview($el))">Vista previa</button>
         </div>
 
-        <button type="button" class="gh-markdown-editor__button" title="Titulo" @mousedown.prevent @click="GesthorMarkdownEditor.insertSnippet($el, 'heading')">
+        <button type="button" class="gh-markdown-editor__button" title="Titulo" data-markdown-snippet="heading" @mousedown.prevent @click="GesthorMarkdownEditor.insertSnippet($el, \'heading\')">
             <i class="icon-base ti tabler-heading"></i>
         </button>
-        <button type="button" class="gh-markdown-editor__button" title="Negrita" @mousedown.prevent @click="GesthorMarkdownEditor.insertSnippet($el, 'bold')">
+        <button type="button" class="gh-markdown-editor__button" title="Negrita" data-markdown-snippet="bold" @mousedown.prevent @click="GesthorMarkdownEditor.insertSnippet($el, \'bold\')">
             <i class="icon-base ti tabler-bold"></i>
         </button>
-        <button type="button" class="gh-markdown-editor__button" title="Italica" @mousedown.prevent @click="GesthorMarkdownEditor.insertSnippet($el, 'italic')">
+        <button type="button" class="gh-markdown-editor__button" title="Italica" data-markdown-snippet="italic" @mousedown.prevent @click="GesthorMarkdownEditor.insertSnippet($el, \'italic\')">
             <i class="icon-base ti tabler-italic"></i>
         </button>
-        <button type="button" class="gh-markdown-editor__button" title="Enlace" @mousedown.prevent @click="GesthorMarkdownEditor.insertSnippet($el, 'link')">
+        <button type="button" class="gh-markdown-editor__button" title="Enlace" data-markdown-snippet="link" @mousedown.prevent @click="GesthorMarkdownEditor.insertSnippet($el, \'link\')">
             <i class="icon-base ti tabler-link"></i>
         </button>
-        <button type="button" class="gh-markdown-editor__button" title="Lista" @mousedown.prevent @click="GesthorMarkdownEditor.insertSnippet($el, 'list')">
+        <button type="button" class="gh-markdown-editor__button" title="Lista" data-markdown-snippet="list" @mousedown.prevent @click="GesthorMarkdownEditor.insertSnippet($el, \'list\')">
             <i class="icon-base ti tabler-list"></i>
         </button>
-        <button type="button" class="gh-markdown-editor__button" title="Checklist" @mousedown.prevent @click="GesthorMarkdownEditor.insertSnippet($el, 'checklist')">
+        <button type="button" class="gh-markdown-editor__button" title="Checklist" data-markdown-snippet="checklist" @mousedown.prevent @click="GesthorMarkdownEditor.insertSnippet($el, \'checklist\')">
             <i class="icon-base ti tabler-list-check"></i>
         </button>
-        <button type="button" class="gh-markdown-editor__button" title="Cita" @mousedown.prevent @click="GesthorMarkdownEditor.insertSnippet($el, 'quote')">
+        <button type="button" class="gh-markdown-editor__button" title="Cita" data-markdown-snippet="quote" @mousedown.prevent @click="GesthorMarkdownEditor.insertSnippet($el, \'quote\')">
             <i class="icon-base ti tabler-blockquote"></i>
         </button>
-        <button type="button" class="gh-markdown-editor__button" title="Codigo" @mousedown.prevent @click="GesthorMarkdownEditor.insertSnippet($el, 'code')">
+        <button type="button" class="gh-markdown-editor__button" title="Codigo" data-markdown-snippet="code" @mousedown.prevent @click="GesthorMarkdownEditor.insertSnippet($el, \'code\')">
             <i class="icon-base ti tabler-code"></i>
+        </button>
+        <button type="button" class="gh-markdown-editor__button gh-markdown-editor__copy" data-markdown-copy title="Copiar contenido" aria-label="Copiar contenido" @mousedown.prevent>
+            <i class="icon-base ti tabler-clipboard" data-copy-idle="icon-base ti tabler-clipboard" data-copy-done="icon-base ti tabler-clipboard-check" data-copy-fail="icon-base ti tabler-clipboard-x" aria-hidden="true"></i>
         </button>
     </div>
 

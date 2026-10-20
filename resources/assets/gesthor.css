@@ -148,3 +148,8 @@
             gap: .5rem;
             padding: .5rem .75rem .75rem;
         }
+
+/* Copiar contenido: a la derecha de la barra, separado de los botones de formato. */
+.gh-markdown-editor__copy { margin-left: auto; }
+.gh-markdown-editor__copy.is-copied { color: var(--bs-success, #15803d); }
+.gh-markdown-editor__copy.is-failed { color: var(--bs-danger, #b91c1c); }
