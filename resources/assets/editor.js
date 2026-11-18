@@ -138,47 +138,301 @@
         return ('<p>' + html + '</p>').replace(/<p>(<h[1-6]>.*?<\/h[1-6]>)<\/p>/gs, '$1');
     }
 
-    var mermaidPromise = null;
+    // Diagramas Mermaid renderizados con pele (https://pele.run): convierte el texto
+    // en SVG de forma síncrona y sin medir el DOM, así que funciona en contenedores
+    // ocultos (pestañas, modales, x-show) y no compite con los re-render del preview.
+    var PELE_SRC = 'https://cdn.jsdelivr.net/npm/pele@1.13.0/dist/pele.global.js';
+    var pelePromise = null;
 
-    function ensureMermaid() {
-        if (window.mermaid) {
-            return Promise.resolve(window.mermaid);
+    function ensurePele() {
+        if (window.pele && typeof window.pele.render === 'function') {
+            return Promise.resolve(window.pele);
         }
 
-        if (!mermaidPromise) {
-            mermaidPromise = new Promise(function (resolve, reject) {
+        if (!pelePromise) {
+            pelePromise = new Promise(function (resolve, reject) {
                 var script = document.createElement('script');
-                script.src = 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js';
+                script.src = PELE_SRC;
                 script.onload = function () {
-                    window.mermaid.initialize({ startOnLoad: false, securityLevel: 'strict' });
-                    resolve(window.mermaid);
+                    if (window.pele && typeof window.pele.render === 'function') resolve(window.pele);
+                    else { pelePromise = null; reject(new Error('pele no está disponible')); }
                 };
                 script.onerror = function () {
-                    mermaidPromise = null;
-                    reject(new Error('No se pudo cargar mermaid'));
+                    pelePromise = null;
+                    reject(new Error('No se pudo cargar el renderizador de diagramas'));
                 };
                 document.head.appendChild(script);
             });
         }
 
-        return mermaidPromise;
+        return pelePromise;
+    }
+
+    var expandIcon = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 3H3v5M16 3h5v5M3 16v5h5M21 16v5h-5"/></svg>';
+
+    function renderDiagram(pele, node) {
+        var src = node.dataset.source !== undefined ? node.dataset.source : node.textContent;
+        node.dataset.source = src;
+        node.setAttribute('data-processed', 'true');
+
+        var result = null;
+        try {
+            result = pele.render(src.trim());
+        } catch (error) {
+            result = {error: error};
+        }
+
+        if (!result || result.error || !result.svg) {
+            var message = result && result.error && result.error.message ? result.error.message : 'sintaxis no soportada';
+            node.classList.add('lm-diagram--error');
+            node.innerHTML = '<div class="lm-diagram__error">Diagrama inválido: ' + escapeHtml(message) + '</div><pre><code>' + escapeHtml(src) + '</code></pre>';
+            return;
+        }
+
+        node.classList.remove('lm-diagram--error');
+        node.classList.add('lm-diagram');
+        node.innerHTML = '<div class="lm-diagram__canvas">' + result.svg + '</div>'
+            + '<button type="button" class="lm-diagram__expand" data-diagram-expand title="Ver a pantalla completa" aria-label="Ver diagrama a pantalla completa">' + expandIcon + '</button>';
+    }
+
+    // Estilos del diagrama y del visor: se inyectan aquí porque los diagramas también
+    // aparecen en vistas show que no cargan la hoja del editor.
+    var DIAGRAM_CSS = ''
+        + '.lm-diagram{position:relative;overflow:auto;max-width:100%;margin:.5rem 0}'
+        + '.lm-diagram__canvas svg{max-width:100%;height:auto}'
+        + '.lm-diagram__expand{position:absolute;top:.25rem;right:.25rem;display:inline-flex;align-items:center;justify-content:center;width:2rem;height:2rem;padding:0;border:1px solid var(--bs-border-color,#d9dee3);border-radius:.375rem;background:var(--bs-body-bg,#fff);color:var(--bs-body-color,#566a7f);opacity:.75;cursor:pointer}'
+        + '.lm-diagram__expand:hover,.lm-diagram__expand:focus-visible{opacity:1}'
+        + '.lm-diagram__error{color:var(--bs-danger,#b91c1c);font-size:.875em;margin-bottom:.25rem}'
+        + '.lm-diagram-viewer{position:fixed;inset:0;width:100vw;height:100dvh;max-width:none;max-height:none;margin:0;padding:0;border:0;display:none;flex-direction:column;background:var(--bs-body-bg,#fff);color:var(--bs-body-color,#566a7f)}'
+        + '.lm-diagram-viewer:popover-open{display:flex}'
+        + '.lm-diagram-viewer::backdrop{background:rgba(0,0,0,.5)}'
+        + '.lm-diagram-viewer__toolbar{display:flex;align-items:center;gap:.375rem;padding:.5rem .75rem;border-bottom:1px solid var(--bs-border-color,#d9dee3)}'
+        + '.lm-diagram-viewer__toolbar button{min-width:2.25rem;height:2.25rem;padding:0 .625rem;border:1px solid var(--bs-border-color,#d9dee3);border-radius:.375rem;background:transparent;color:inherit;font-size:1rem;line-height:1;cursor:pointer}'
+        + '.lm-diagram-viewer__toolbar button:hover{background:rgba(0,0,0,.05)}'
+        + '.lm-diagram-viewer__zoom{min-width:3.5rem;font-size:.875rem;font-variant-numeric:tabular-nums}'
+        + '.lm-diagram-viewer__close{margin-left:auto;font-size:1.25rem!important}'
+        + '.lm-diagram-viewer__stage{position:relative;flex:1;overflow:hidden;cursor:grab;touch-action:none;outline:none}'
+        + '.lm-diagram-viewer__stage.is-dragging{cursor:grabbing}'
+        + '.lm-diagram-viewer__content{position:absolute;top:0;left:0;transform-origin:0 0}'
+        + '.lm-diagram-viewer__content svg{display:block}'
+        + '.lm-diagram-viewer__hint{padding:.25rem .75rem;font-size:.75rem;opacity:.7;text-align:center}';
+
+    function injectDiagramStyles() {
+        if (document.getElementById('lm-diagram-styles')) return;
+        var style = document.createElement('style');
+        style.id = 'lm-diagram-styles';
+        style.textContent = DIAGRAM_CSS;
+        document.head.appendChild(style);
     }
 
     function renderMermaid(container) {
+        injectDiagramStyles();
         var nodes = (container || document).querySelectorAll('.mermaid:not([data-processed])');
 
         if (nodes.length === 0) {
             return;
         }
 
-        ensureMermaid().then(function (mermaid) {
-            mermaid.run({ nodes: nodes }).catch(function (error) {
-                console.error('Error renderizando diagrama mermaid:', error);
+        ensurePele().then(function (pele) {
+            nodes.forEach(function (node) {
+                if (node.isConnected && !node.hasAttribute('data-processed')) renderDiagram(pele, node);
             });
         }).catch(function (error) {
             console.error(error);
         });
     }
+
+    // ---- Visor de diagramas a pantalla completa -------------------------------------------
+    // Usa la Popover API (top layer): queda encima de cualquier modal Bootstrap o del editor
+    // ampliado sin abrir un segundo .modal (sin modal sobre modal, z-index ni robo de foco).
+    var viewer = null;
+
+    function buildViewer() {
+        var root = document.createElement('div');
+        root.className = 'lm-diagram-viewer';
+        root.setAttribute('popover', 'manual');
+        root.setAttribute('role', 'dialog');
+        root.setAttribute('aria-modal', 'true');
+        root.setAttribute('aria-label', 'Diagrama a pantalla completa');
+        root.innerHTML = ''
+            + '<div class="lm-diagram-viewer__toolbar">'
+            + '<button type="button" data-viewer="zoom-in" title="Acercar (+)" aria-label="Acercar">+</button>'
+            + '<button type="button" data-viewer="zoom-out" title="Alejar (-)" aria-label="Alejar">&minus;</button>'
+            + '<button type="button" data-viewer="fit" title="Ajustar a pantalla (0)" aria-label="Ajustar a pantalla">Ajustar</button>'
+            + '<button type="button" data-viewer="reset" title="Tamaño real (1)" aria-label="Tamaño real">100%</button>'
+            + '<span class="lm-diagram-viewer__zoom" aria-live="polite"></span>'
+            + '<button type="button" data-viewer="close" class="lm-diagram-viewer__close" title="Cerrar (Esc)" aria-label="Cerrar">&times;</button>'
+            + '</div>'
+            + '<div class="lm-diagram-viewer__stage" tabindex="0"><div class="lm-diagram-viewer__content"></div></div>'
+            + '<div class="lm-diagram-viewer__hint">Arrastra para mover · Rueda para acercar/alejar · Flechas para desplazar</div>';
+        document.body.appendChild(root);
+        // El focus trap del modal Bootstrap escucha focusin en document: no debe verlo.
+        root.addEventListener('focusin', function (event) { event.stopPropagation(); });
+
+        var state = {root: root, stage: root.querySelector('.lm-diagram-viewer__stage'),
+            content: root.querySelector('.lm-diagram-viewer__content'), label: root.querySelector('.lm-diagram-viewer__zoom'),
+            scale: 1, x: 0, y: 0, width: 0, height: 0, invoker: null, drag: null, pointers: new Map(), pinch: null};
+
+        root.addEventListener('click', function (event) {
+            var button = event.target.closest('[data-viewer]');
+            if (!button) return;
+            var action = button.dataset.viewer;
+            if (action === 'close') closeViewer();
+            else if (action === 'fit') fitViewer();
+            else if (action === 'reset') zoomTo(1);
+            else zoomBy(action === 'zoom-in' ? 1.25 : 0.8);
+        });
+
+        state.stage.addEventListener('wheel', function (event) {
+            event.preventDefault();
+            var rect = state.stage.getBoundingClientRect();
+            zoomBy(Math.exp(-event.deltaY * (event.deltaMode === 1 ? 0.05 : 0.0015)), event.clientX - rect.left, event.clientY - rect.top);
+        }, {passive: false});
+
+        state.stage.addEventListener('pointerdown', function (event) {
+            state.stage.setPointerCapture(event.pointerId);
+            state.pointers.set(event.pointerId, {x: event.clientX, y: event.clientY});
+            if (state.pointers.size === 2) {
+                var p = Array.from(state.pointers.values());
+                state.pinch = {distance: Math.hypot(p[0].x - p[1].x, p[0].y - p[1].y)};
+                state.drag = null;
+            } else {
+                state.drag = {x: event.clientX - state.x, y: event.clientY - state.y};
+                state.stage.classList.add('is-dragging');
+            }
+        });
+        state.stage.addEventListener('pointermove', function (event) {
+            if (!state.pointers.has(event.pointerId)) return;
+            state.pointers.set(event.pointerId, {x: event.clientX, y: event.clientY});
+            if (state.pinch && state.pointers.size === 2) {
+                var p = Array.from(state.pointers.values());
+                var distance = Math.hypot(p[0].x - p[1].x, p[0].y - p[1].y);
+                var rect = state.stage.getBoundingClientRect();
+                zoomBy(distance / state.pinch.distance, (p[0].x + p[1].x) / 2 - rect.left, (p[0].y + p[1].y) / 2 - rect.top);
+                state.pinch.distance = distance;
+            } else if (state.drag) {
+                state.x = event.clientX - state.drag.x;
+                state.y = event.clientY - state.drag.y;
+                applyTransform();
+            }
+        });
+        function endPointer(event) {
+            state.pointers.delete(event.pointerId);
+            if (state.pointers.size < 2) state.pinch = null;
+            if (state.pointers.size === 0) { state.drag = null; state.stage.classList.remove('is-dragging'); }
+        }
+        state.stage.addEventListener('pointerup', endPointer);
+        state.stage.addEventListener('pointercancel', endPointer);
+
+        return state;
+    }
+
+    function applyTransform() {
+        viewer.content.style.transform = 'translate(' + viewer.x + 'px,' + viewer.y + 'px) scale(' + viewer.scale + ')';
+        viewer.label.textContent = Math.round(viewer.scale * 100) + '%';
+    }
+
+    function zoomTo(scale, cx, cy) {
+        var rect = viewer.stage.getBoundingClientRect();
+        cx = cx === undefined ? rect.width / 2 : cx;
+        cy = cy === undefined ? rect.height / 2 : cy;
+        scale = Math.min(8, Math.max(0.05, scale));
+        // Mantiene fijo el punto bajo el cursor.
+        viewer.x = cx - (cx - viewer.x) * (scale / viewer.scale);
+        viewer.y = cy - (cy - viewer.y) * (scale / viewer.scale);
+        viewer.scale = scale;
+        applyTransform();
+    }
+
+    function zoomBy(factor, cx, cy) {
+        zoomTo(viewer.scale * factor, cx, cy);
+    }
+
+    function fitViewer() {
+        var rect = viewer.stage.getBoundingClientRect();
+        var padding = 32;
+        var scale = Math.min((rect.width - padding * 2) / viewer.width, (rect.height - padding * 2) / viewer.height, 4);
+        viewer.scale = scale > 0 && isFinite(scale) ? scale : 1;
+        viewer.x = (rect.width - viewer.width * viewer.scale) / 2;
+        viewer.y = (rect.height - viewer.height * viewer.scale) / 2;
+        applyTransform();
+    }
+
+    function viewerKey(event) {
+        if (!viewer || !viewer.root.matches(':popover-open')) return;
+        var step = 60;
+        var handled = true;
+        if (event.key === 'Escape') closeViewer();
+        else if (event.key === '+' || event.key === '=') zoomBy(1.25);
+        else if (event.key === '-' || event.key === '_') zoomBy(0.8);
+        else if (event.key === '0') fitViewer();
+        else if (event.key === '1') zoomTo(1);
+        else if (event.key === 'ArrowLeft') { viewer.x += step; applyTransform(); }
+        else if (event.key === 'ArrowRight') { viewer.x -= step; applyTransform(); }
+        else if (event.key === 'ArrowUp') { viewer.y += step; applyTransform(); }
+        else if (event.key === 'ArrowDown') { viewer.y -= step; applyTransform(); }
+        else if (event.key === 'Tab') {
+            var targets = Array.from(viewer.root.querySelectorAll('button, [tabindex="0"]'));
+            var index = targets.indexOf(document.activeElement);
+            var next = event.shiftKey ? (index <= 0 ? targets.length - 1 : index - 1) : (index + 1) % targets.length;
+            targets[next].focus();
+        } else handled = false;
+        if (handled) {
+            // Captura: ni el modal Bootstrap ni el editor ampliado reciben la tecla (Esc no los cierra).
+            event.preventDefault();
+            event.stopImmediatePropagation();
+        }
+    }
+
+    function viewerFocus(event) {
+        if (viewer && viewer.root.matches(':popover-open') && !viewer.root.contains(event.target)) {
+            event.stopImmediatePropagation();
+            viewer.stage.focus({preventScroll: true});
+        }
+    }
+
+    function openViewer(diagram, invoker) {
+        var svg = diagram.querySelector('.lm-diagram__canvas svg');
+        if (!svg || typeof HTMLElement.prototype.showPopover !== 'function') return;
+        if (!viewer) viewer = buildViewer();
+
+        var clone = svg.cloneNode(true);
+        var box = svg.viewBox && svg.viewBox.baseVal && svg.viewBox.baseVal.width ? svg.viewBox.baseVal : svg.getBBox();
+        viewer.width = parseFloat(svg.getAttribute('width')) || box.width || 800;
+        viewer.height = parseFloat(svg.getAttribute('height')) || box.height || 600;
+        clone.setAttribute('width', viewer.width);
+        clone.setAttribute('height', viewer.height);
+        clone.style.maxWidth = 'none';
+        viewer.content.innerHTML = '';
+        viewer.content.appendChild(clone);
+        viewer.invoker = invoker || null;
+
+        // Re-mostrar lo sube al tope del top layer, por encima del editor ampliado.
+        if (viewer.root.matches(':popover-open')) viewer.root.hidePopover();
+        viewer.root.showPopover();
+        document.addEventListener('keydown', viewerKey, true);
+        document.addEventListener('focusin', viewerFocus, true);
+        fitViewer();
+        viewer.stage.focus({preventScroll: true});
+    }
+
+    function closeViewer() {
+        if (!viewer || !viewer.root.matches(':popover-open')) return;
+        viewer.root.hidePopover();
+        document.removeEventListener('keydown', viewerKey, true);
+        document.removeEventListener('focusin', viewerFocus, true);
+        viewer.content.innerHTML = '';
+        if (viewer.invoker && viewer.invoker.isConnected) viewer.invoker.focus({preventScroll: true});
+        viewer.invoker = null;
+    }
+
+    document.addEventListener('click', function (event) {
+        var button = event.target.closest && event.target.closest('[data-diagram-expand]');
+        if (!button) return;
+        event.preventDefault();
+        event.stopPropagation();
+        openViewer(button.closest('.lm-diagram'), button);
+    });
 
     // Convierte los bloques ```mermaid renderizados en servidor (@markdown_content
     // genera <pre><code class="language-mermaid">) en diagramas.
@@ -243,14 +497,27 @@
             list: selected ? lines.map(function (line) { return '- ' + line; }).join('\n') : '- Elemento',
             checklist: selected ? lines.map(function (line) { return '- [ ] ' + line; }).join('\n') : '- [ ] Elemento',
             quote: selected ? lines.map(function (line) { return '> ' + line; }).join('\n') : '> Cita',
-            code: selected.indexOf('\n') >= 0 ? '```\n' + selected + '\n```' : '`' + (selected || 'codigo') + '`',
+            code: selected && selected.indexOf('\n') < 0 ? '`' + selected + '`' : '```\n' + (selected || 'codigo') + '\n```',
         };
         var snippet = snippets[type] || selected;
+        var isBlock = type === 'code' && snippet.indexOf('```') === 0;
+
+        // Un bloque de código va en líneas propias.
+        if (isBlock) {
+            if (start > 0 && textarea.value[start - 1] !== '\n') snippet = '\n' + snippet;
+            if (end < textarea.value.length && textarea.value[end] !== '\n') snippet = snippet + '\n';
+        }
 
         textarea.value = textarea.value.substring(0, start) + snippet + textarea.value.substring(end);
         textarea.focus();
-        textarea.selectionStart = start;
-        textarea.selectionEnd = start + snippet.length;
+        if (isBlock) {
+            // Deja seleccionado el contenido del bloque para escribir encima.
+            textarea.selectionStart = start + snippet.indexOf('```') + 4;
+            textarea.selectionEnd = start + snippet.lastIndexOf('\n```');
+        } else {
+            textarea.selectionStart = start;
+            textarea.selectionEnd = start + snippet.length;
+        }
         textarea.dispatchEvent(new Event('input', { bubbles: true }));
         updatePreview(element);
     }
@@ -357,8 +624,12 @@
         });
     }
 
+    function viewerOpen() {
+        return !!(viewer && viewer.root.matches(':popover-open'));
+    }
+
     function expandedKey(event) {
-        if (!expandedEditor) return;
+        if (!expandedEditor || viewerOpen()) return;
         if (event.key === 'Escape') {
             event.preventDefault(); event.stopImmediatePropagation(); restoreExpanded();
         } else if (event.key === 'Tab') {
@@ -373,7 +644,7 @@
     }
 
     function expandedFocus(event) {
-        if (expandedEditor && !expandedEditor.contains(event.target)) {
+        if (expandedEditor && !viewerOpen() && !expandedEditor.contains(event.target)) {
             event.stopImmediatePropagation();
             var target = expandedTargets()[0];
             if (target) target.focus({preventScroll: true});

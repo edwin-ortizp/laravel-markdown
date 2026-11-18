@@ -8,8 +8,8 @@
         ->class(['lm-editor__source']);
 @endphp
 @once
-    <link rel="stylesheet" href="{{ asset('vendor/laravel-markdown/editor.css') }}?v=0.3.0">
-    <script src="{{ asset('vendor/laravel-markdown/editor.js') }}?v=0.3.0"></script>
+    <link rel="stylesheet" href="{{ asset('vendor/laravel-markdown/editor.css') }}?v=0.3.1">
+    <script src="{{ asset('vendor/laravel-markdown/editor.js') }}?v=0.3.1"></script>
 @endonce
 <div data-markdown-editor data-editor-id="{{ $id }}" data-initial-mode="{{ $initialMode }}" class="lm-editor">
     <div class="lm-editor__toolbar" role="toolbar" aria-label="Formato Markdown">
